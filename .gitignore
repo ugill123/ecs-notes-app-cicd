@@ -1,0 +1,19 @@
+# Dependencies
+/node_modules
+package-lock.json
+
+# Environment variables (secrets — never commit these)
+.env
+.env.*
+
+# Local database file (legacy)
+database.sqlite
+
+# OS-generated files
+.DS_Store
+Thumbs.db
+
+# Log files
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*

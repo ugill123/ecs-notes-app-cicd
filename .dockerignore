@@ -1,0 +1,15 @@
+node_modules
+npm-debug.log*
+.env
+.env.*
+.git
+.gitignore
+.ebextensions
+buildspec.yml
+README.md
+Dockerfile
+.dockerignore
+database.sqlite
+*.md
+.DS_Store
+Thumbs.db
