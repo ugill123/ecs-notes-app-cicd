@@ -7,7 +7,7 @@ WORKDIR /app
 # Dependencies are only re-installed when package.json changes.
 COPY package.json package-lock.json* ./
 
-RUN npm ci --omit=dev
+RUN npm install
 
 # --- Stage 2: Production image ---
 FROM node:20-alpine
