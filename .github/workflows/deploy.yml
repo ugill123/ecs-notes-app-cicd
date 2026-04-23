@@ -1,69 +1,98 @@
-name: Deploy to Amazon ECS
+name: Build and Deploy
 
 on:
   push:
-    branches:
-      - main
+    branches: [dev, staging, main]
 
 env:
-  # ==========================================
-  # REPLACE THESE 2 VALUES WITH YOUR ACTUAL NAMES
-  # ==========================================
-  ECS_CLUSTER: "notes-app-cluster"
-  ECS_SERVICE: "notes-app-task-service-a6pen5fq"
-  # ==========================================
-  
-  AWS_ROLE_ARN: "arn:aws:iam::270926559765:role/GitHubActionsECSRole"
-  AWS_REGION: "us-east-1"
-  ECR_REPOSITORY: "notes-app"
-  ECS_TASK_DEFINITION: "./task-definition.json"
-  CONTAINER_NAME: "notes-app-container"
+  AWS_REGION: us-east-1
+  ECR_REPOSITORY: notes-app-shared
+  PROJECT_NAME: notes-app
 
 permissions:
-  id-token: write # Required for secure OIDC authentication
-  contents: read  # Required to checkout the code
+  id-token: write
+  contents: read
 
 jobs:
-  deploy:
-    name: Build and Deploy
+  build-and-push:
+    name: Build & Push Image
     runs-on: ubuntu-latest
+    outputs:
+      image_tag: ${{ steps.build.outputs.image_tag }}
+      full_image: ${{ steps.build.outputs.full_image }}
 
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - name: Configure AWS credentials
+      - name: Configure AWS credentials (Shared Account - ECR)
         uses: aws-actions/configure-aws-credentials@v4
         with:
-          role-to-assume: ${{ env.AWS_ROLE_ARN }}
+          role-to-assume: ${{ secrets.ECR_PUSH_ROLE_ARN }}
           aws-region: ${{ env.AWS_REGION }}
 
       - name: Login to Amazon ECR
         id: login-ecr
         uses: aws-actions/amazon-ecr-login@v2
 
-      - name: Build, tag, and push image to Amazon ECR
-        id: build-image
+      - name: Build, tag, and push image
+        id: build
         env:
           ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
           IMAGE_TAG: ${{ github.sha }}
         run: |
-          docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG .
-          docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
-          echo "image=$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG" >> $GITHUB_OUTPUT
+          FULL_IMAGE=$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
+          docker build -t $FULL_IMAGE .
+          docker tag $FULL_IMAGE $ECR_REGISTRY/$ECR_REPOSITORY:latest
+          docker push $FULL_IMAGE
+          docker push $ECR_REGISTRY/$ECR_REPOSITORY:latest
+          echo "image_tag=$IMAGE_TAG" >> $GITHUB_OUTPUT
+          echo "full_image=$FULL_IMAGE" >> $GITHUB_OUTPUT
 
-      - name: Render new image into task definition
+  deploy:
+    name: Deploy to ECS
+    needs: build-and-push
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Set environment config
+        id: config
+        run: |
+          BRANCH="${{ github.ref_name }}"
+          if [[ "$BRANCH" == "dev" ]]; then
+            echo "env=dev" >> $GITHUB_OUTPUT
+            echo "role_arn=${{ secrets.DEV_DEPLOY_ROLE_ARN }}" >> $GITHUB_OUTPUT
+          elif [[ "$BRANCH" == "staging" ]]; then
+            echo "env=staging" >> $GITHUB_OUTPUT
+            echo "role_arn=${{ secrets.STAGING_DEPLOY_ROLE_ARN }}" >> $GITHUB_OUTPUT
+          elif [[ "$BRANCH" == "main" ]]; then
+            echo "env=prod" >> $GITHUB_OUTPUT
+            echo "role_arn=${{ secrets.PROD_DEPLOY_ROLE_ARN }}" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Configure AWS credentials (Target Account - ECS)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ steps.config.outputs.role_arn }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Download current task definition
+        run: |
+          aws ecs describe-task-definition \
+            --task-definition ${{ env.PROJECT_NAME }}-${{ steps.config.outputs.env }}-task \
+            --query taskDefinition > task-definition.json
+
+      - name: Update image in task definition
         id: task-def
         uses: aws-actions/amazon-ecs-render-task-definition@v1
         with:
-          task-definition: ${{ env.ECS_TASK_DEFINITION }}
-          container-name: ${{ env.CONTAINER_NAME }}
-          image: ${{ steps.build-image.outputs.image }}
+          task-definition: task-definition.json
+          container-name: ${{ env.PROJECT_NAME }}-${{ steps.config.outputs.env }}-container
+          image: ${{ needs.build-and-push.outputs.full_image }}
 
       - name: Deploy to Amazon ECS
         uses: aws-actions/amazon-ecs-deploy-task-definition@v2
         with:
           task-definition: ${{ steps.task-def.outputs.task-definition }}
-          service: ${{ env.ECS_SERVICE }}
-          cluster: ${{ env.ECS_CLUSTER }}
+          service: ${{ env.PROJECT_NAME }}-${{ steps.config.outputs.env }}-service
+          cluster: ${{ env.PROJECT_NAME }}-${{ steps.config.outputs.env }}-cluster
           wait-for-service-stability: true
