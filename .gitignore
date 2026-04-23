@@ -17,3 +17,6 @@ Thumbs.db
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
+
+# ECS task definitions (downloaded at deploy time, may contain secrets)
+task-definition.json
