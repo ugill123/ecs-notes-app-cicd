@@ -3,103 +3,122 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Cloud Notes V2</title>
-    <!-- Tailwind CSS for styling -->
+    <title>Cloud Notes — Dev</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <!-- Google Fonts: Inter -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700&display=swap" rel="stylesheet">
-    <style>
-        body { 
-            font-family: 'Inter', sans-serif;
-            background-color: #f8fafc; /* bg-slate-50 */
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <script>
+      tailwind.config = {
+        theme: {
+          extend: {
+            fontFamily: { sans: ['Inter', 'sans-serif'] },
+          }
         }
-        /* A subtle animation for new notes appearing */
-        @keyframes slide-in-fade {
-            from { opacity: 0; transform: translateY(-20px); }
+      }
+    </script>
+    <style>
+        @keyframes slide-up {
+            from { opacity: 0; transform: translateY(16px); }
             to { opacity: 1; transform: translateY(0); }
         }
-        .note-card-animation {
-            animation: slide-in-fade 0.5s cubic-bezier(0.25, 0.46, 0.45, 0.94) forwards;
-        }
-        /* Custom styling for the textarea scrollbar */
-        textarea::-webkit-scrollbar { width: 8px; }
-        textarea::-webkit-scrollbar-track { background: #f1f5f9; border-radius: 10px; }
-        textarea::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
-        textarea::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
-        
-        /* Notification styles */
+        .note-animate { animation: slide-up 0.35s ease-out forwards; }
+
         #notification-area {
-            position: fixed;
-            top: 1rem;
-            right: 1rem;
-            z-index: 50;
-            display: flex;
-            flex-direction: column;
-            gap: 0.5rem;
+            position: fixed; top: 1rem; right: 1rem; z-index: 50;
+            display: flex; flex-direction: column; gap: 0.5rem;
         }
         .notification {
-            padding: 1rem;
-            border-radius: 0.5rem;
-            color: white;
-            opacity: 0;
-            transform: translateX(100%);
-            transition: all 0.5s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+            padding: 0.75rem 1.25rem; border-radius: 0.75rem; color: white; font-weight: 500;
+            opacity: 0; transform: translateX(100%);
+            transition: all 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94);
         }
-        .notification.show {
-            opacity: 1;
-            transform: translateX(0);
-        }
-        .notification.error { background-color: #ef4444; } /* bg-red-500 */
-        .notification.success { background-color: #22c55e; } /* bg-green-500 */
-
+        .notification.show { opacity: 1; transform: translateX(0); }
+        .notification.error { background-color: #ef4444; }
+        .notification.success { background-color: #10b981; }
     </style>
 </head>
-<body class="text-slate-800">
-    
+<body class="bg-gray-50 text-gray-800 min-h-screen flex flex-col">
+
     <!-- Notification Area -->
     <div id="notification-area"></div>
 
-    <div class="container mx-auto max-w-2xl px-4 py-8 sm:py-12">
+    <!-- Top Environment Banner -->
+    <div class="bg-amber-400 text-amber-950 text-center text-xs font-semibold tracking-widest uppercase py-1.5">
+        Dev Environment
+    </div>
 
-        <!-- Header -->
-        <header class="text-center mb-10">
-            <div class="flex justify-center items-center gap-3">
-                <svg xmlns="http://www.w3.org/2000/svg" width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-indigo-600"><path d="M12 20h9"></path><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path></svg>
-                <h1 class="text-4xl sm:text-5xl font-bold text-slate-900 tracking-tight">Cloud Notes</h1>
+    <!-- Navbar -->
+    <nav class="bg-white border-b border-gray-200 sticky top-0 z-40">
+        <div class="max-w-3xl mx-auto px-4 sm:px-6 h-14 flex items-center justify-between">
+            <div class="flex items-center gap-2.5">
+                <div class="w-8 h-8 rounded-lg bg-gradient-to-br from-amber-400 to-orange-500 flex items-center justify-center">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
+                </div>
+                <span class="text-lg font-bold text-gray-900">Cloud Notes</span>
+                <span class="ml-1 text-[10px] font-bold uppercase tracking-wider bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full">Dev</span>
             </div>
-            <p class="text-slate-500 mt-3">Your cloud notes, updated and deployed automatically via CI/CD.</p>
-        </header>
+            <div class="flex items-center gap-3">
+                <span class="hidden sm:inline text-xs text-gray-400">Deployed via CI/CD</span>
+                <div class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" title="Connected"></div>
+            </div>
+        </div>
+    </nav>
 
-        <!-- Note Input Form -->
-        <div class="bg-white p-6 rounded-xl shadow-lg mb-10 border border-slate-200">
-            <form id="note-form">
-                <label for="note-content" class="block text-sm font-medium text-slate-700 mb-2">Create a new note</label>
-                <textarea id="note-content" name="content" rows="4" class="w-full p-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition duration-150 ease-in-out" placeholder="What's on your mind?"></textarea>
-                <div class="flex justify-end mt-4">
-                    <button type="submit" id="submit-button" class="flex items-center gap-2 bg-gradient-to-r from-indigo-600 to-purple-600 text-white font-bold py-2.5 px-5 rounded-lg hover:opacity-90 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-all duration-300 shadow-md hover:shadow-lg disabled:from-slate-400 disabled:to-slate-400 disabled:cursor-not-allowed">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+    <!-- Main Content -->
+    <main class="flex-1 max-w-3xl w-full mx-auto px-4 sm:px-6 py-8">
+
+        <!-- Welcome Card -->
+        <div class="bg-gradient-to-br from-amber-50 to-orange-50 border border-amber-200 rounded-2xl p-6 mb-8">
+            <h2 class="text-xl font-bold text-gray-900 mb-1">Dev Environment</h2>
+            <p class="text-sm text-gray-500">This is the development instance. Changes pushed to the <code class="bg-amber-100 text-amber-800 px-1.5 py-0.5 rounded text-xs font-mono">dev</code> branch deploy here automatically.</p>
+        </div>
+
+        <!-- New Note Form -->
+        <div class="bg-white rounded-2xl shadow-sm border border-gray-200 p-5 mb-8">
+            <form id="note-form" class="space-y-4">
+                <label for="note-content" class="block text-sm font-semibold text-gray-700">New Note</label>
+                <textarea
+                    id="note-content"
+                    name="content"
+                    rows="3"
+                    class="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-amber-400 focus:border-transparent transition resize-none"
+                    placeholder="What's on your mind?"
+                ></textarea>
+                <div class="flex justify-end">
+                    <button type="submit" id="submit-button" class="inline-flex items-center gap-2 bg-gradient-to-r from-amber-500 to-orange-500 text-white text-sm font-semibold px-5 py-2.5 rounded-xl hover:shadow-lg hover:shadow-amber-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-amber-400 transition-all disabled:opacity-50 disabled:cursor-not-allowed">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
                         Add Note
                     </button>
                 </div>
             </form>
         </div>
-        
-        <!-- Loading Spinner -->
-        <div id="loading" class="text-center hidden my-12">
-            <svg class="animate-spin h-8 w-8 text-indigo-600 mx-auto" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+
+        <!-- Loading -->
+        <div id="loading" class="hidden text-center py-12">
+            <svg class="animate-spin h-7 w-7 text-amber-500 mx-auto" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                 <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
                 <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
             </svg>
-            <p class="text-slate-500 mt-2">Loading notes...</p>
+            <p class="text-gray-400 text-sm mt-3">Loading notes...</p>
         </div>
 
         <!-- Notes List -->
-        <div id="notes-container" class="space-y-5">
-            <!-- Notes will be dynamically inserted here -->
+        <div id="notes-container" class="space-y-3">
+            <!-- Notes rendered here -->
         </div>
-    </div>
+    </main>
+
+    <!-- Footer -->
+    <footer class="border-t border-gray-200 bg-white">
+        <div class="max-w-3xl mx-auto px-4 sm:px-6 py-4 flex items-center justify-between text-xs text-gray-400">
+            <span>Cloud Notes v2.0</span>
+            <span class="inline-flex items-center gap-1.5">
+                <span class="w-1.5 h-1.5 rounded-full bg-amber-400"></span>
+                Dev
+            </span>
+        </div>
+    </footer>
 
     <script>
         const noteForm = document.getElementById('note-form');
@@ -109,215 +128,188 @@
         const submitButton = document.getElementById('submit-button');
         const notificationArea = document.getElementById('notification-area');
 
-        // --- Notification System ---
+        // --- Notifications ---
         const showNotification = (message, type = 'error') => {
-            const notification = document.createElement('div');
-            notification.className = `notification ${type}`;
-            notification.textContent = message;
-            notificationArea.appendChild(notification);
-            
-            // Trigger the animation
-            setTimeout(() => notification.classList.add('show'), 10);
-            
-            // Remove the notification after a few seconds
+            const el = document.createElement('div');
+            el.className = `notification ${type}`;
+            el.textContent = message;
+            notificationArea.appendChild(el);
+            setTimeout(() => el.classList.add('show'), 10);
             setTimeout(() => {
-                notification.classList.remove('show');
-                notification.addEventListener('transitionend', () => notification.remove());
-            }, 4000);
+                el.classList.remove('show');
+                el.addEventListener('transitionend', () => el.remove());
+            }, 3500);
         };
 
-        // --- API Functions ---
+        // --- API ---
         const fetchNotes = async () => {
             loadingIndicator.classList.remove('hidden');
             notesContainer.innerHTML = '';
             try {
-                const response = await fetch('/api/notes');
-                if (!response.ok) throw new Error('Failed to fetch notes');
-                const notes = await response.json();
-                renderNotes(notes);
-            } catch (error) {
-                console.error(error);
-                notesContainer.innerHTML = `<div class="bg-red-100 text-red-700 p-4 rounded-lg shadow-md border border-red-200">Error loading notes. Please try again later.</div>`;
+                const res = await fetch('/api/notes');
+                if (!res.ok) throw new Error('Failed to fetch notes');
+                renderNotes(await res.json());
+            } catch (err) {
+                console.error(err);
+                notesContainer.innerHTML = `<div class="bg-red-50 text-red-600 text-sm p-4 rounded-xl border border-red-200">Error loading notes. Please try again.</div>`;
             } finally {
                 loadingIndicator.classList.add('hidden');
             }
         };
 
         const addNote = async (content) => {
-            const originalButtonContent = submitButton.innerHTML;
+            const orig = submitButton.innerHTML;
             submitButton.disabled = true;
-            submitButton.innerHTML = 'Adding...';
+            submitButton.textContent = 'Adding...';
             try {
-                const response = await fetch('/api/notes', {
+                const res = await fetch('/api/notes', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ content }),
                 });
-                if (!response.ok) {
-                     const errorData = await response.json();
-                     throw new Error(errorData.error || 'Failed to add note');
+                if (!res.ok) {
+                    const data = await res.json();
+                    throw new Error(data.error || 'Failed to add note');
                 }
                 noteContent.value = '';
-                showNotification('Note added successfully!', 'success');
+                showNotification('Note added!', 'success');
                 await fetchNotes();
-            } catch (error) {
-                console.error(error);
-                showNotification(`Error: ${error.message}`);
+            } catch (err) {
+                console.error(err);
+                showNotification(err.message);
             } finally {
                 submitButton.disabled = false;
-                submitButton.innerHTML = originalButtonContent;
+                submitButton.innerHTML = orig;
             }
         };
-        
-        const deleteNote = async (id, noteElement) => {
-            noteElement.style.opacity = '0.5';
+
+        const deleteNote = async (id, el) => {
+            el.style.opacity = '0.4';
             try {
-                const response = await fetch(`/api/notes/${id}`, { method: 'DELETE' });
-                if (!response.ok) throw new Error('Failed to delete note');
-                noteElement.remove();
+                const res = await fetch(`/api/notes/${id}`, { method: 'DELETE' });
+                if (!res.ok) throw new Error('Failed to delete');
+                el.remove();
                 showNotification('Note deleted.', 'success');
-            } catch (error) {
-                console.error(error);
+            } catch (err) {
+                console.error(err);
                 showNotification('Could not delete the note.');
-                noteElement.style.opacity = '1';
+                el.style.opacity = '1';
             }
         };
 
-        const updateNote = async (id, newContent, noteElement) => {
-            const saveButton = noteElement.querySelector('.save-btn');
-            saveButton.innerHTML = 'Saving...';
-            saveButton.disabled = true;
-
+        const updateNote = async (id, newContent, noteEl) => {
+            const saveBtn = noteEl.querySelector('.save-btn');
+            saveBtn.textContent = '...';
+            saveBtn.disabled = true;
             try {
-                const response = await fetch(`/api/notes/${id}`, {
+                const res = await fetch(`/api/notes/${id}`, {
                     method: 'PUT',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ content: newContent }),
                 });
-                if (!response.ok) throw new Error('Failed to save note');
-                const updatedNote = await response.json();
-                exitEditMode(noteElement, updatedNote.content);
+                if (!res.ok) throw new Error('Failed to save');
+                const updated = await res.json();
+                exitEditMode(noteEl, updated.content);
                 showNotification('Note updated!', 'success');
-            } catch (error) {
-                console.error(error);
+            } catch (err) {
+                console.error(err);
                 showNotification('Could not save the note.');
-                const originalContent = noteElement.querySelector('textarea').value;
-                exitEditMode(noteElement, originalContent); // Revert on failure
+                exitEditMode(noteEl, noteEl.querySelector('textarea').value);
             }
         };
 
-        // --- DOM Manipulation (Updated for new UI) ---
-        const createIconButton = (svg, hoverClass) => {
-            const button = document.createElement('button');
-            button.className = `p-1.5 text-slate-400 rounded-full transition-colors duration-200 ${hoverClass}`;
-            button.innerHTML = svg;
-            return button;
+        // --- DOM ---
+        const iconBtn = (svg, cls) => {
+            const btn = document.createElement('button');
+            btn.className = `p-1.5 rounded-lg text-gray-400 transition-colors ${cls}`;
+            btn.innerHTML = svg;
+            return btn;
         };
-        
-        const enterEditMode = (noteElement, initialContent) => {
-            const contentPara = noteElement.querySelector('.note-content-p');
-            const buttonContainer = noteElement.querySelector('.button-container');
 
-            const editArea = document.createElement('textarea');
-            editArea.className = 'w-full p-2 border border-slate-300 rounded-md focus:ring-2 focus:ring-indigo-500 text-slate-800 bg-slate-50';
-            editArea.value = initialContent;
-            editArea.rows = 4;
-            
-            const saveSVG = `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>`;
-            const cancelSVG = `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>`;
+        const editSVG = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/></svg>`;
+        const deleteSVG = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>`;
+        const saveSVG = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>`;
+        const cancelSVG = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>`;
 
-            const saveButton = createIconButton(saveSVG, 'hover:text-green-500 hover:bg-green-100');
-            saveButton.classList.add('save-btn');
-            saveButton.onclick = () => {
-                const newContent = editArea.value.trim();
-                if (newContent) {
-                    const noteId = noteElement.dataset.noteId;
-                    updateNote(noteId, newContent, noteElement);
-                }
+        const enterEditMode = (noteEl, content) => {
+            const p = noteEl.querySelector('.note-text');
+            const actions = noteEl.querySelector('.note-actions');
+
+            const ta = document.createElement('textarea');
+            ta.className = 'w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-amber-400 resize-none';
+            ta.value = content;
+            ta.rows = 3;
+
+            const saveBtn = iconBtn(saveSVG, 'hover:text-emerald-500 hover:bg-emerald-50 save-btn');
+            saveBtn.onclick = () => {
+                const v = ta.value.trim();
+                if (v) updateNote(noteEl.dataset.noteId, v, noteEl);
             };
-            
-            const cancelButton = createIconButton(cancelSVG, 'hover:text-red-500 hover:bg-red-100');
-            cancelButton.onclick = () => exitEditMode(noteElement, initialContent);
+            const cancelBtn = iconBtn(cancelSVG, 'hover:text-red-500 hover:bg-red-50');
+            cancelBtn.onclick = () => exitEditMode(noteEl, content);
 
-            contentPara.replaceWith(editArea);
-            buttonContainer.innerHTML = '';
-            buttonContainer.appendChild(saveButton);
-            buttonContainer.appendChild(cancelButton);
-            editArea.focus();
+            p.replaceWith(ta);
+            actions.innerHTML = '';
+            actions.appendChild(saveBtn);
+            actions.appendChild(cancelBtn);
+            ta.focus();
         };
-        
-        const exitEditMode = (noteElement, content) => {
-             const editArea = noteElement.querySelector('textarea');
-             const buttonContainer = noteElement.querySelector('.button-container');
 
-             const contentPara = document.createElement('p');
-             contentPara.className = 'note-content-p text-slate-700 flex-grow mr-4 whitespace-pre-wrap';
-             contentPara.textContent = content;
+        const exitEditMode = (noteEl, content) => {
+            const ta = noteEl.querySelector('textarea');
+            const actions = noteEl.querySelector('.note-actions');
 
-             const editSVG = `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"></path></svg>`;
-             const deleteSVG = `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>`;
-             
-             const editButton = createIconButton(editSVG, 'hover:text-indigo-500 hover:bg-indigo-100');
-             editButton.onclick = () => enterEditMode(noteElement, content);
+            const p = document.createElement('p');
+            p.className = 'note-text text-sm text-gray-700 whitespace-pre-wrap flex-1 mr-3';
+            p.textContent = content;
 
-             const deleteButton = createIconButton(deleteSVG, 'hover:text-red-500 hover:bg-red-100');
-             deleteButton.onclick = () => {
-                const noteId = noteElement.dataset.noteId;
-                deleteNote(noteId, noteElement);
-             };
-             
-             if (editArea) {
-                editArea.replaceWith(contentPara);
-             }
-             buttonContainer.innerHTML = '';
-             buttonContainer.appendChild(editButton);
-             buttonContainer.appendChild(deleteButton);
+            const eBtn = iconBtn(editSVG, 'hover:text-amber-500 hover:bg-amber-50');
+            eBtn.onclick = () => enterEditMode(noteEl, content);
+            const dBtn = iconBtn(deleteSVG, 'hover:text-red-500 hover:bg-red-50');
+            dBtn.onclick = () => deleteNote(noteEl.dataset.noteId, noteEl);
+
+            if (ta) ta.replaceWith(p);
+            actions.innerHTML = '';
+            actions.appendChild(eBtn);
+            actions.appendChild(dBtn);
         };
 
         const renderNotes = (notes) => {
             notesContainer.innerHTML = '';
             if (notes.length === 0) {
-                notesContainer.innerHTML = `<div class="bg-white text-center p-8 rounded-xl shadow-sm border border-slate-200"><p class="text-slate-500">No notes yet. Add one above to get started!</p></div>`;
+                notesContainer.innerHTML = `<div class="text-center py-12 text-gray-400 text-sm">No notes yet. Create one above.</div>`;
                 return;
             }
+            notes.forEach((note, i) => {
+                const el = document.createElement('div');
+                el.className = 'bg-white rounded-xl border border-gray-200 p-4 flex items-start gap-3 note-animate';
+                el.style.animationDelay = `${i * 0.05}s`;
+                el.dataset.noteId = note.id;
 
-            notes.forEach(note => {
-                const noteElement = document.createElement('div');
-                noteElement.className = 'bg-white p-5 rounded-xl shadow-md flex flex-col sm:flex-row justify-between items-start gap-4 border border-slate-200 note-card-animation';
-                noteElement.dataset.noteId = note.id;
+                const p = document.createElement('p');
+                p.className = 'note-text text-sm text-gray-700 whitespace-pre-wrap flex-1 mr-3';
+                p.textContent = note.content;
 
-                const contentPara = document.createElement('p');
-                contentPara.className = 'note-content-p text-slate-700 flex-grow mr-4 whitespace-pre-wrap';
-                contentPara.textContent = note.content;
+                const actions = document.createElement('div');
+                actions.className = 'note-actions flex items-center gap-1 flex-shrink-0';
 
-                const buttonContainer = document.createElement('div');
-                buttonContainer.className = 'button-container flex items-center gap-1 flex-shrink-0 self-end sm:self-start';
+                const eBtn = iconBtn(editSVG, 'hover:text-amber-500 hover:bg-amber-50');
+                eBtn.onclick = () => enterEditMode(el, note.content);
+                const dBtn = iconBtn(deleteSVG, 'hover:text-red-500 hover:bg-red-50');
+                dBtn.onclick = () => deleteNote(note.id, el);
 
-                const editSVG = `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"></path></svg>`;
-                const deleteSVG = `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>`;
-                
-                const editButton = createIconButton(editSVG, 'hover:text-indigo-500 hover:bg-indigo-100');
-                editButton.onclick = () => enterEditMode(noteElement, note.content);
-
-                const deleteButton = createIconButton(deleteSVG, 'hover:text-red-500 hover:bg-red-100');
-                deleteButton.onclick = () => deleteNote(note.id, noteElement);
-                
-                buttonContainer.appendChild(editButton);
-                buttonContainer.appendChild(deleteButton);
-                
-                noteElement.appendChild(contentPara);
-                noteElement.appendChild(buttonContainer);
-
-                notesContainer.appendChild(noteElement);
+                actions.appendChild(eBtn);
+                actions.appendChild(dBtn);
+                el.appendChild(p);
+                el.appendChild(actions);
+                notesContainer.appendChild(el);
             });
         };
 
         noteForm.addEventListener('submit', (e) => {
             e.preventDefault();
-            const content = noteContent.value.trim();
-            if (content) {
-                addNote(content);
-            }
+            const v = noteContent.value.trim();
+            if (v) addNote(v);
         });
 
         document.addEventListener('DOMContentLoaded', fetchNotes);
