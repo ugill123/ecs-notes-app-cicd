@@ -14,8 +14,51 @@ permissions:
   contents: read
 
 jobs:
+  quality-gate:
+    name: Quality Gate
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run linter
+        run: npm run lint
+
+      - name: Run tests
+        run: npm test
+
+      - name: Notify Quality Gate failure
+        if: failure()
+        uses: dawidd6/action-send-mail@v3
+        with:
+          server_address: ${{ secrets.EMAIL_SERVER }}
+          server_port: ${{ secrets.EMAIL_PORT }}
+          username: ${{ secrets.EMAIL_USERNAME }}
+          password: ${{ secrets.EMAIL_PASSWORD }}
+          to: ${{ secrets.EMAIL_TO }}
+          from: ${{ secrets.EMAIL_FROM }}
+          subject: "❌ Quality Gate Failed — ${{ github.repository }} (${{ github.ref_name }})"
+          body: |
+            Quality Gate failed for ${{ github.repository }}.
+
+            Failure Reason: Lint or test failure
+            Branch: ${{ github.ref_name }}
+            Commit SHA: ${{ github.sha }}
+
+            View the failed workflow run:
+            ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+
   build-and-push:
     name: Build & Push Image
+    needs: quality-gate
     runs-on: ubuntu-latest
     outputs:
       image_tag: ${{ steps.build.outputs.image_tag }}
@@ -48,37 +91,31 @@ jobs:
           echo "image_tag=$IMAGE_TAG" >> $GITHUB_OUTPUT
           echo "full_image=$FULL_IMAGE" >> $GITHUB_OUTPUT
 
-  deploy:
-    name: Deploy to ECS
+  # ---------------------------------------------------------------------------
+  # Promotion Model: Build once, deploy everywhere
+  # The Docker image is built exactly once in build-and-push and promoted
+  # through dev → staging → production using the same image tag (git SHA).
+  # ---------------------------------------------------------------------------
+
+  deploy-dev:
+    name: Deploy to Dev
     needs: build-and-push
     runs-on: ubuntu-latest
+    # Runs on dev, staging, and main branches
+    if: github.ref_name == 'dev' || github.ref_name == 'staging' || github.ref_name == 'main'
+    environment: dev
 
     steps:
-      - name: Set environment config
-        id: config
-        run: |
-          BRANCH="${{ github.ref_name }}"
-          if [[ "$BRANCH" == "dev" ]]; then
-            echo "env=dev" >> $GITHUB_OUTPUT
-            echo "role_arn=${{ secrets.DEV_DEPLOY_ROLE_ARN }}" >> $GITHUB_OUTPUT
-          elif [[ "$BRANCH" == "staging" ]]; then
-            echo "env=staging" >> $GITHUB_OUTPUT
-            echo "role_arn=${{ secrets.STAGING_DEPLOY_ROLE_ARN }}" >> $GITHUB_OUTPUT
-          elif [[ "$BRANCH" == "main" ]]; then
-            echo "env=prod" >> $GITHUB_OUTPUT
-            echo "role_arn=${{ secrets.PROD_DEPLOY_ROLE_ARN }}" >> $GITHUB_OUTPUT
-          fi
-
-      - name: Configure AWS credentials (Target Account - ECS)
+      - name: Configure AWS credentials (Dev Account)
         uses: aws-actions/configure-aws-credentials@v4
         with:
-          role-to-assume: ${{ steps.config.outputs.role_arn }}
+          role-to-assume: ${{ secrets.DEPLOY_ROLE_ARN }}
           aws-region: ${{ env.AWS_REGION }}
 
       - name: Download current task definition
         run: |
           aws ecs describe-task-definition \
-            --task-definition ${{ env.PROJECT_NAME }}-${{ steps.config.outputs.env }}-task \
+            --task-definition ${{ env.PROJECT_NAME }}-dev-task \
             --query taskDefinition > task-definition.json
 
       - name: Update image in task definition
@@ -86,13 +123,180 @@ jobs:
         uses: aws-actions/amazon-ecs-render-task-definition@v1
         with:
           task-definition: task-definition.json
-          container-name: ${{ env.PROJECT_NAME }}-${{ steps.config.outputs.env }}-container
+          container-name: ${{ env.PROJECT_NAME }}-dev-container
           image: ${{ needs.build-and-push.outputs.full_image }}
 
       - name: Deploy to Amazon ECS
         uses: aws-actions/amazon-ecs-deploy-task-definition@v2
         with:
           task-definition: ${{ steps.task-def.outputs.task-definition }}
-          service: ${{ env.PROJECT_NAME }}-${{ steps.config.outputs.env }}-service
-          cluster: ${{ env.PROJECT_NAME }}-${{ steps.config.outputs.env }}-cluster
+          service: ${{ env.PROJECT_NAME }}-dev-service
+          cluster: ${{ env.PROJECT_NAME }}-dev-cluster
           wait-for-service-stability: true
+          wait-for-minutes: 5
+
+      - name: Notify deployment failure
+        if: failure()
+        uses: dawidd6/action-send-mail@v3
+        with:
+          server_address: ${{ secrets.EMAIL_SERVER }}
+          server_port: ${{ secrets.EMAIL_PORT }}
+          username: ${{ secrets.EMAIL_USERNAME }}
+          password: ${{ secrets.EMAIL_PASSWORD }}
+          to: ${{ secrets.EMAIL_TO }}
+          from: ${{ secrets.EMAIL_FROM }}
+          subject: "❌ Deployment Failed — dev — ${{ github.repository }}"
+          body: |
+            Deployment to dev failed for ${{ github.repository }}.
+
+            Environment: dev
+            Branch: ${{ github.ref_name }}
+            Commit SHA: ${{ github.sha }}
+
+            View the failed workflow run:
+            ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+
+  deploy-staging:
+    name: Deploy to Staging
+    needs: [build-and-push, deploy-dev]
+    runs-on: ubuntu-latest
+    # Runs on staging and main branches only
+    if: github.ref_name == 'staging' || github.ref_name == 'main'
+    environment: staging
+
+    steps:
+      - name: Configure AWS credentials (Staging Account)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.DEPLOY_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Download current task definition
+        run: |
+          aws ecs describe-task-definition \
+            --task-definition ${{ env.PROJECT_NAME }}-staging-task \
+            --query taskDefinition > task-definition.json
+
+      - name: Update image in task definition
+        id: task-def
+        uses: aws-actions/amazon-ecs-render-task-definition@v1
+        with:
+          task-definition: task-definition.json
+          container-name: ${{ env.PROJECT_NAME }}-staging-container
+          image: ${{ needs.build-and-push.outputs.full_image }}
+
+      - name: Deploy to Amazon ECS
+        uses: aws-actions/amazon-ecs-deploy-task-definition@v2
+        with:
+          task-definition: ${{ steps.task-def.outputs.task-definition }}
+          service: ${{ env.PROJECT_NAME }}-staging-service
+          cluster: ${{ env.PROJECT_NAME }}-staging-cluster
+          wait-for-service-stability: true
+          wait-for-minutes: 5
+
+      - name: Notify deployment failure
+        if: failure()
+        uses: dawidd6/action-send-mail@v3
+        with:
+          server_address: ${{ secrets.EMAIL_SERVER }}
+          server_port: ${{ secrets.EMAIL_PORT }}
+          username: ${{ secrets.EMAIL_USERNAME }}
+          password: ${{ secrets.EMAIL_PASSWORD }}
+          to: ${{ secrets.EMAIL_TO }}
+          from: ${{ secrets.EMAIL_FROM }}
+          subject: "❌ Deployment Failed — staging — ${{ github.repository }}"
+          body: |
+            Deployment to staging failed for ${{ github.repository }}.
+
+            Environment: staging
+            Branch: ${{ github.ref_name }}
+            Commit SHA: ${{ github.sha }}
+
+            View the failed workflow run:
+            ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+
+  deploy-production:
+    name: Deploy to Production
+    needs: [build-and-push, deploy-staging]
+    runs-on: ubuntu-latest
+    # Runs on main branch only
+    # NOTE: The 'production' GitHub Environment MUST have "Required Reviewers"
+    # protection rule enabled in repository settings (Settings → Environments →
+    # production → Required reviewers). This causes GitHub Actions to pause
+    # execution here and wait for a designated reviewer to approve the deployment
+    # via the GitHub UI before proceeding. If the reviewer rejects, this job is
+    # cancelled. This manual gate is configured in GitHub, not in workflow YAML.
+    if: github.ref_name == 'main'
+    environment: production
+
+    steps:
+      - name: Configure AWS credentials (Production Account)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.DEPLOY_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Download current task definition
+        run: |
+          aws ecs describe-task-definition \
+            --task-definition ${{ env.PROJECT_NAME }}-prod-task \
+            --query taskDefinition > task-definition.json
+
+      - name: Update image in task definition
+        id: task-def
+        uses: aws-actions/amazon-ecs-render-task-definition@v1
+        with:
+          task-definition: task-definition.json
+          container-name: ${{ env.PROJECT_NAME }}-prod-container
+          image: ${{ needs.build-and-push.outputs.full_image }}
+
+      - name: Deploy to Amazon ECS
+        uses: aws-actions/amazon-ecs-deploy-task-definition@v2
+        with:
+          task-definition: ${{ steps.task-def.outputs.task-definition }}
+          service: ${{ env.PROJECT_NAME }}-prod-service
+          cluster: ${{ env.PROJECT_NAME }}-prod-cluster
+          wait-for-service-stability: true
+          wait-for-minutes: 5
+
+      - name: Notify deployment failure
+        if: failure()
+        uses: dawidd6/action-send-mail@v3
+        with:
+          server_address: ${{ secrets.EMAIL_SERVER }}
+          server_port: ${{ secrets.EMAIL_PORT }}
+          username: ${{ secrets.EMAIL_USERNAME }}
+          password: ${{ secrets.EMAIL_PASSWORD }}
+          to: ${{ secrets.EMAIL_TO }}
+          from: ${{ secrets.EMAIL_FROM }}
+          subject: "❌ Deployment Failed — production — ${{ github.repository }}"
+          body: |
+            Deployment to production failed for ${{ github.repository }}.
+
+            Environment: production
+            Branch: ${{ github.ref_name }}
+            Commit SHA: ${{ github.sha }}
+
+            View the failed workflow run:
+            ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+
+      - name: Notify production deployment success
+        if: success()
+        uses: dawidd6/action-send-mail@v3
+        with:
+          server_address: ${{ secrets.EMAIL_SERVER }}
+          server_port: ${{ secrets.EMAIL_PORT }}
+          username: ${{ secrets.EMAIL_USERNAME }}
+          password: ${{ secrets.EMAIL_PASSWORD }}
+          to: ${{ secrets.EMAIL_TO }}
+          from: ${{ secrets.EMAIL_FROM }}
+          subject: "✅ Production Deployment Succeeded — ${{ github.repository }}"
+          body: |
+            Production deployment succeeded for ${{ github.repository }}.
+
+            Environment: production
+            Branch: ${{ github.ref_name }}
+            Commit SHA: ${{ github.sha }}
+
+            View the workflow run:
+            ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
