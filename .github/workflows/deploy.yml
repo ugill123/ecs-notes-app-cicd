@@ -92,17 +92,18 @@ jobs:
           echo "full_image=$FULL_IMAGE" >> $GITHUB_OUTPUT
 
   # ---------------------------------------------------------------------------
-  # Promotion Model: Build once, deploy everywhere
-  # The Docker image is built exactly once in build-and-push and promoted
-  # through dev → staging → production using the same image tag (git SHA).
+  # PR-based Promotion Model:
+  # Each branch deploys only to its own environment. Promotion happens via
+  # pull requests: dev → staging → main (production).
+  # The Docker image is built once per push and deployed to the matching env.
   # ---------------------------------------------------------------------------
 
   deploy-dev:
     name: Deploy to Dev
     needs: build-and-push
     runs-on: ubuntu-latest
-    # Runs on dev, staging, and main branches
-    if: github.ref_name == 'dev' || github.ref_name == 'staging' || github.ref_name == 'main'
+    # Runs only on dev branch
+    if: github.ref_name == 'dev'
     environment: dev
 
     steps:
@@ -158,10 +159,10 @@ jobs:
 
   deploy-staging:
     name: Deploy to Staging
-    needs: [build-and-push, deploy-dev]
+    needs: build-and-push
     runs-on: ubuntu-latest
-    # Runs on staging and main branches only
-    if: github.ref_name == 'staging' || github.ref_name == 'main'
+    # Runs only on staging branch
+    if: github.ref_name == 'staging'
     environment: staging
 
     steps:
@@ -217,9 +218,9 @@ jobs:
 
   deploy-production:
     name: Deploy to Production
-    needs: [build-and-push, deploy-staging]
+    needs: build-and-push
     runs-on: ubuntu-latest
-    # Runs on main branch only
+    # Runs only on main branch
     # NOTE: The 'production' GitHub Environment MUST have "Required Reviewers"
     # protection rule enabled in repository settings (Settings → Environments →
     # production → Required reviewers). This causes GitHub Actions to pause
