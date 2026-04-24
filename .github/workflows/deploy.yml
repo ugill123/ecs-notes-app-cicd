@@ -35,27 +35,6 @@ jobs:
       - name: Run tests
         run: npm test
 
-      - name: Notify Quality Gate failure
-        if: failure()
-        uses: dawidd6/action-send-mail@v3
-        with:
-          server_address: ${{ secrets.EMAIL_SERVER }}
-          server_port: ${{ secrets.EMAIL_PORT }}
-          username: ${{ secrets.EMAIL_USERNAME }}
-          password: ${{ secrets.EMAIL_PASSWORD }}
-          to: ${{ secrets.EMAIL_TO }}
-          from: ${{ secrets.EMAIL_FROM }}
-          subject: "❌ Quality Gate Failed — ${{ github.repository }} (${{ github.ref_name }})"
-          body: |
-            Quality Gate failed for ${{ github.repository }}.
-
-            Failure Reason: Lint or test failure
-            Branch: ${{ github.ref_name }}
-            Commit SHA: ${{ github.sha }}
-
-            View the failed workflow run:
-            ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
-
   build-and-push:
     name: Build & Push Image
     needs: quality-gate
@@ -136,27 +115,6 @@ jobs:
           wait-for-service-stability: true
           wait-for-minutes: 5
 
-      - name: Notify deployment failure
-        if: failure()
-        uses: dawidd6/action-send-mail@v3
-        with:
-          server_address: ${{ secrets.EMAIL_SERVER }}
-          server_port: ${{ secrets.EMAIL_PORT }}
-          username: ${{ secrets.EMAIL_USERNAME }}
-          password: ${{ secrets.EMAIL_PASSWORD }}
-          to: ${{ secrets.EMAIL_TO }}
-          from: ${{ secrets.EMAIL_FROM }}
-          subject: "❌ Deployment Failed — dev — ${{ github.repository }}"
-          body: |
-            Deployment to dev failed for ${{ github.repository }}.
-
-            Environment: dev
-            Branch: ${{ github.ref_name }}
-            Commit SHA: ${{ github.sha }}
-
-            View the failed workflow run:
-            ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
-
   deploy-staging:
     name: Deploy to Staging
     needs: build-and-push
@@ -194,27 +152,6 @@ jobs:
           cluster: ${{ env.PROJECT_NAME }}-staging-cluster
           wait-for-service-stability: true
           wait-for-minutes: 5
-
-      - name: Notify deployment failure
-        if: failure()
-        uses: dawidd6/action-send-mail@v3
-        with:
-          server_address: ${{ secrets.EMAIL_SERVER }}
-          server_port: ${{ secrets.EMAIL_PORT }}
-          username: ${{ secrets.EMAIL_USERNAME }}
-          password: ${{ secrets.EMAIL_PASSWORD }}
-          to: ${{ secrets.EMAIL_TO }}
-          from: ${{ secrets.EMAIL_FROM }}
-          subject: "❌ Deployment Failed — staging — ${{ github.repository }}"
-          body: |
-            Deployment to staging failed for ${{ github.repository }}.
-
-            Environment: staging
-            Branch: ${{ github.ref_name }}
-            Commit SHA: ${{ github.sha }}
-
-            View the failed workflow run:
-            ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
 
   deploy-production:
     name: Deploy to Production
@@ -259,45 +196,3 @@ jobs:
           cluster: ${{ env.PROJECT_NAME }}-prod-cluster
           wait-for-service-stability: true
           wait-for-minutes: 5
-
-      - name: Notify deployment failure
-        if: failure()
-        uses: dawidd6/action-send-mail@v3
-        with:
-          server_address: ${{ secrets.EMAIL_SERVER }}
-          server_port: ${{ secrets.EMAIL_PORT }}
-          username: ${{ secrets.EMAIL_USERNAME }}
-          password: ${{ secrets.EMAIL_PASSWORD }}
-          to: ${{ secrets.EMAIL_TO }}
-          from: ${{ secrets.EMAIL_FROM }}
-          subject: "❌ Deployment Failed — production — ${{ github.repository }}"
-          body: |
-            Deployment to production failed for ${{ github.repository }}.
-
-            Environment: production
-            Branch: ${{ github.ref_name }}
-            Commit SHA: ${{ github.sha }}
-
-            View the failed workflow run:
-            ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
-
-      - name: Notify production deployment success
-        if: success()
-        uses: dawidd6/action-send-mail@v3
-        with:
-          server_address: ${{ secrets.EMAIL_SERVER }}
-          server_port: ${{ secrets.EMAIL_PORT }}
-          username: ${{ secrets.EMAIL_USERNAME }}
-          password: ${{ secrets.EMAIL_PASSWORD }}
-          to: ${{ secrets.EMAIL_TO }}
-          from: ${{ secrets.EMAIL_FROM }}
-          subject: "✅ Production Deployment Succeeded — ${{ github.repository }}"
-          body: |
-            Production deployment succeeded for ${{ github.repository }}.
-
-            Environment: production
-            Branch: ${{ github.ref_name }}
-            Commit SHA: ${{ github.sha }}
-
-            View the workflow run:
-            ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
