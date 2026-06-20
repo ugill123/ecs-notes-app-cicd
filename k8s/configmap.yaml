@@ -1,0 +1,15 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: notes-app-config
+  namespace: notes-app-dev
+  labels:
+    app: notes-app
+    environment: dev
+data:
+  DB_HOST: "<your-rds-endpoint>"
+  DB_PORT: "5432"
+  DB_NAME: "<your-db-name>"
+  DB_USER: "<your-db-user>"
+  DB_SSL: "true"
+  PORT: "3000"
